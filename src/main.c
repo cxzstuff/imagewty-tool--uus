@@ -96,8 +96,13 @@ static FILE* open_image_file(const char* path, ImageWTYHeader* hdr)
         return NULL;
     }
 
-    /* Read the image header (function exits on failure) */
-    read_image_header(f, hdr);
+    /* Read the image header */
+    if (read_image_header(f, hdr) != 0)
+    {
+        fprintf(stderr, "Error: Failed to read image header from '%s'\n", path);
+        fclose(f);
+        return NULL;
+    }
 
     if (strncmp(hdr->magic, IMAGEWTY_MAGIC, 8) != 0)
     {

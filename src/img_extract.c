@@ -45,7 +45,12 @@ int extract_image(const char* img_filename)
 
     /* Read main image header */
     ImageWTYHeader hdr;
-    read_image_header(f, &hdr);
+    if (read_image_header(f, &hdr) != 0)
+    {
+        fprintf(stderr, "Error: Failed to read image header from '%s'\n", img_filename);
+        fclose(f);
+        return 1;
+    }
 
     if (strncmp(hdr.magic, IMAGEWTY_MAGIC, 8) != 0)
     {
@@ -63,9 +68,14 @@ int extract_image(const char* img_filename)
         return 1;
     }
 
-    /* Create dump directory: <image>.dump */
+    /* Create dump directory: <image>.dump
+     * Copy the filename to a local buffer before calling basename(),
+     * since POSIX basename() may modify the input string. */
+    char name_buf[1024];
+    snprintf(name_buf, sizeof(name_buf), "%s", img_filename);
+
     char dump_dir[1024];
-    snprintf(dump_dir, sizeof(dump_dir), "%s.dump", basename((char*)img_filename));
+    snprintf(dump_dir, sizeof(dump_dir), "%s.dump", basename(name_buf));
     if (mkdir(dump_dir, 0755) && errno != EEXIST)
     {
         perror("Error creating dump directory");
@@ -134,11 +144,17 @@ int extract_image(const char* img_filename)
 
         if (fread(data, 1, fh->original_length, f) != fh->original_length)
         {
-            perror("Error reading file data");
+            fprintf(stderr, "Error reading file data for '%s'\n", fh->filename);
+            free(data);
+            fclose(of);
+            continue;
         }
 
         printf("Extracting: %s (%u bytes)\n", filepath, fh->original_length);
-        fwrite(data, 1, fh->original_length, of);
+        if (fwrite(data, 1, fh->original_length, of) != fh->original_length)
+        {
+            fprintf(stderr, "Error writing file '%s'\n", filepath);
+        }
         free(data);
         fclose(of);
     }

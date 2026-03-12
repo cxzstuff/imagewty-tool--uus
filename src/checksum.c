@@ -93,9 +93,11 @@ static void check_vfiles_common(const char* dump_folder, int update)
     while ((entry = readdir(dir)) != NULL)
     {
         const char* name = entry->d_name;
+        size_t name_len = strlen(name);
 
         /* Only process files starting with 'V' and ending with ".fex" */
-        if (name[0] != 'V' || !strstr(name, ".fex"))
+        if (name[0] != 'V' || name_len < 4 ||
+            strcmp(name + name_len - 4, ".fex") != 0)
             continue;
 
         /* Skip known vbmeta variants */
@@ -159,7 +161,10 @@ static void check_vfiles_common(const char* dump_folder, int update)
                                      (uint8_t)((actual >> 16) & 0xFF),
                                      (uint8_t)((actual >> 24) & 0xFF)};
 
-                fwrite(newbuf, 1, 4, vf2);
+                if (fwrite(newbuf, 1, 4, vf2) != 4)
+                {
+                    fprintf(stderr, "Error writing checksum to '%s'\n", vfile_path);
+                }
                 fclose(vf2);
                 printf("       Updated checksum in %s to %u\n", name, actual);
             }

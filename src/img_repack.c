@@ -34,7 +34,7 @@
  * @param stored_length Output parameter: padded file size.
  * @param padding Output parameter: number of padding bytes to add.
  */
-void calculate_padding(uint64_t original_length, uint64_t* stored_length, uint64_t* padding)
+static void calculate_padding(uint64_t original_length, uint64_t* stored_length, uint64_t* padding)
 {
     *stored_length =
         ((original_length + PADDING_ALIGNMENT - 1) / PADDING_ALIGNMENT) * PADDING_ALIGNMENT;
@@ -63,10 +63,10 @@ int repack_image(const char* dump_folder, const char* output_file)
         return 1;
     }
 
-    // Update virtual files if necessary
+    /* Update virtual files if necessary */
     update_vfiles_if_needed(dump_folder);
 
-    // Load global header and file headers from image.cfg
+    /* Load global header and file headers from image.cfg */
     char cfg_path[1024];
     snprintf(cfg_path, sizeof(cfg_path), "%s/image.cfg", dump_folder);
 
@@ -79,7 +79,7 @@ int repack_image(const char* dump_folder, const char* output_file)
         return 1;
     }
 
-    // Open output file
+    /* Open output file */
     FILE* out = fopen(output_file, "wb");
     if (!out)
     {
@@ -88,9 +88,9 @@ int repack_image(const char* dump_folder, const char* output_file)
         return 1;
     }
 
-    // ------------------------------------------------------------------
-    // Write Global Header
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * Write Global Header
+     * ------------------------------------------------------------------ */
     uint8_t gh_buf[IMG_HEADER_HEADER_SIZE];
     memset(gh_buf, 0, sizeof(gh_buf));
 
@@ -119,9 +119,9 @@ int repack_image(const char* dump_folder, const char* output_file)
         return 1;
     }
 
-    // ------------------------------------------------------------------
-    // Update stored_length and offset for each file
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * Update stored_length and offset for each file
+     * ------------------------------------------------------------------ */
     uint64_t offset = IMG_HEADER_HEADER_SIZE + (hdr.num_files * hdr.file_header_length);
 
     for (uint32_t i = 0; i < hdr.num_files; i++)
@@ -141,23 +141,42 @@ int repack_image(const char* dump_folder, const char* output_file)
         }
 
         fseek(in, 0, SEEK_END);
-        uint64_t original_length = ftell(in);
+        uint64_t original_length = (uint64_t)ftell(in);
         rewind(in);
         fclose(in);
+
+        /* Check for uint64 → uint32 truncation (format limitation) */
+        if (original_length > UINT32_MAX)
+        {
+            fprintf(stderr,
+                    "Error: file '%s' is too large (%lu bytes) for IMAGEWTY format (max 4GB)\n",
+                    filepath, (unsigned long)original_length);
+            free(files);
+            fclose(out);
+            return 1;
+        }
 
         uint64_t stored_length, padding;
         calculate_padding(original_length, &stored_length, &padding);
 
-        fh->original_length = original_length;
-        fh->stored_length = stored_length;
-        fh->offset = offset;
+        if (stored_length > UINT32_MAX || offset > UINT32_MAX)
+        {
+            fprintf(stderr, "Error: image exceeds 4GB limit at file '%s'\n", filepath);
+            free(files);
+            fclose(out);
+            return 1;
+        }
+
+        fh->original_length = (uint32_t)original_length;
+        fh->stored_length = (uint32_t)stored_length;
+        fh->offset = (uint32_t)offset;
 
         offset += stored_length;
     }
 
-    // ------------------------------------------------------------------
-    // Write File Headers
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * Write File Headers
+     * ------------------------------------------------------------------ */
     for (uint32_t i = 0; i < hdr.num_files; i++)
     {
         ImageWTYFileHeader* fh = &files[i];
@@ -178,9 +197,9 @@ int repack_image(const char* dump_folder, const char* output_file)
         memcpy(fh_buf + 0x20, &fh->unknown0, sizeof(fh->unknown0));
         memcpy(fh_buf + 0x24, fh->filename, 256);
         memcpy(fh_buf + 0x124, &fh->stored_length, sizeof(fh->stored_length));
-        memset(fh_buf + 0x128, 0, 4); // pad1
+        memset(fh_buf + 0x128, 0, 4); /* pad1 */
         memcpy(fh_buf + 0x12C, &fh->original_length, sizeof(fh->original_length));
-        memset(fh_buf + 0x130, 0, 4); // pad2
+        memset(fh_buf + 0x130, 0, 4); /* pad2 */
         memcpy(fh_buf + 0x134, &fh->offset, sizeof(fh->offset));
 
         if (fseek(out, IMG_HEADER_HEADER_SIZE + i * hdr.file_header_length, SEEK_SET) != 0)
@@ -204,9 +223,9 @@ int repack_image(const char* dump_folder, const char* output_file)
         free(fh_buf);
     }
 
-    // ------------------------------------------------------------------
-    // Write file data with padding
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------
+     * Write file data with padding
+     * ------------------------------------------------------------------ */
     for (uint32_t i = 0; i < hdr.num_files; i++)
     {
         ImageWTYFileHeader* fh = &files[i];
@@ -232,6 +251,15 @@ int repack_image(const char* dump_folder, const char* output_file)
         }
 
         uint8_t* buf = malloc(fh->original_length);
+        if (!buf)
+        {
+            fprintf(stderr, "Memory allocation failed for file '%s'\n", filepath);
+            fclose(in);
+            free(files);
+            fclose(out);
+            return 1;
+        }
+
         size_t read_bytes = fread(buf, 1, fh->original_length, in);
         if (read_bytes != fh->original_length)
         {
@@ -244,11 +272,19 @@ int repack_image(const char* dump_folder, const char* output_file)
             return 1;
         }
 
-        fwrite(buf, 1, fh->original_length, out);
+        if (fwrite(buf, 1, fh->original_length, out) != fh->original_length)
+        {
+            fprintf(stderr, "Error writing file data for '%s'\n", filepath);
+            free(buf);
+            fclose(in);
+            free(files);
+            fclose(out);
+            return 1;
+        }
         free(buf);
         fclose(in);
 
-        // Write padding
+        /* Write padding */
         if (fh->stored_length > fh->original_length)
         {
             uint8_t zero_buf[PADDING_ALIGNMENT] = {0};
@@ -257,7 +293,13 @@ int repack_image(const char* dump_folder, const char* output_file)
             {
                 uint64_t write_now =
                     pad_remaining > PADDING_ALIGNMENT ? PADDING_ALIGNMENT : pad_remaining;
-                fwrite(zero_buf, 1, write_now, out);
+                if (fwrite(zero_buf, 1, (size_t)write_now, out) != (size_t)write_now)
+                {
+                    fprintf(stderr, "Error writing padding for '%s'\n", fh->filename);
+                    free(files);
+                    fclose(out);
+                    return 1;
+                }
                 pad_remaining -= write_now;
             }
         }

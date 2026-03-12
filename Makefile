@@ -5,16 +5,18 @@
 # and repack Allwinner firmware images).
 #
 # Targets:
-#   all      - Build the executable
-#   clean    - Remove all build artifacts
-#   install  - Install the binary to /usr/local/bin
-#   cleanobj - Remove only object files
-#   format   - Format all source/header files using clang-format
+#   all       - Build the executable
+#   clean     - Remove all build artifacts
+#   install   - Install the binary to /usr/local/bin
+#   uninstall - Remove the binary from /usr/local/bin
+#   cleanobj  - Remove only object files
+#   format    - Format all source/header files using clang-format
+#   debug     - Build with sanitizers and debug info
 # -----------------------------------------------------------------------------
 
 # Compiler and flags
 CC      = gcc
-CFLAGS  = -Wall -Wextra -std=c11 -O2 -Iinclude
+CFLAGS  = -Wall -Wextra -Wpedantic -std=c11 -O2 -Iinclude
 LDFLAGS = 
 
 # Source files and objects
@@ -45,7 +47,11 @@ clean:
 
 # Install the binary to /usr/local/bin (requires sudo)
 install: $(BIN)
-	cp $(BIN) /usr/local/bin/$(BIN)
+	install -m 755 $(BIN) /usr/local/bin/$(BIN)
+
+# Remove the binary from /usr/local/bin (requires sudo)
+uninstall:
+	rm -f /usr/local/bin/$(BIN)
 
 # Remove only object files
 cleanobj:
@@ -55,4 +61,9 @@ cleanobj:
 format:
 	clang-format -i -style=file $(SRC) include/*.h
 
-.PHONY: all clean install cleanobj format
+# Build with sanitizers and debug info (for development)
+debug: CFLAGS = -Wall -Wextra -Wpedantic -std=c11 -g -O0 -Iinclude -fsanitize=address,undefined -fno-omit-frame-pointer
+debug: LDFLAGS = -fsanitize=address,undefined
+debug: clean $(BIN)
+
+.PHONY: all clean install uninstall cleanobj format debug

@@ -9,7 +9,7 @@
 #include "config_file.h"
 
 #include <ctype.h>
-#include <img_header.h>
+#include "img_header.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +36,7 @@ static char* strip_whitespace(char* s)
     if (end != s)
     {
         end--;
-        while (end > s && isspace((unsigned char)*end))
+        while (end >= s && isspace((unsigned char)*end))
             *end-- = '\0';
     }
 

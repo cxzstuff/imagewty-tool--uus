@@ -20,6 +20,9 @@
 /** Offset where the file headers section begins */
 #define FILE_HEADERS_START 0x400
 
+/** Maximum number of files allowed in an image (sanity limit) */
+#define MAX_IMAGE_FILES 10000
+
 /**
  * @brief Main IMAGEWTY image header structure.
  *
@@ -69,20 +72,13 @@ typedef struct
 /* Function prototypes */
 
 /**
- * @brief Reads a 32-bit unsigned integer from a file in little-endian order.
- *
- * @param f File pointer
- * @return 32-bit unsigned integer
- */
-uint32_t read_uint32_le(FILE* f);
-
-/**
  * @brief Reads the main IMAGEWTY header from a file.
  *
  * @param f   File pointer
  * @param hdr Pointer to an ImageWTYHeader struct to populate
+ * @return 0 on success, -1 on read failure.
  */
-void read_image_header(FILE* f, ImageWTYHeader* hdr);
+int read_image_header(FILE* f, ImageWTYHeader* hdr);
 
 /**
  * @brief Reads a single file header from the file.
@@ -90,8 +86,9 @@ void read_image_header(FILE* f, ImageWTYHeader* hdr);
  * @param f                  File pointer
  * @param fh                 Pointer to ImageWTYFileHeader struct to populate
  * @param file_header_length Size of the file header (from main header)
+ * @return 0 on success, -1 on read failure.
  */
-void read_file_header(FILE* f, ImageWTYFileHeader* fh, uint32_t file_header_length);
+int read_file_header(FILE* f, ImageWTYFileHeader* fh, uint32_t file_header_length);
 
 /**
  * @brief Reads all file headers sequentially from the IMAGEWTY image.
@@ -101,7 +98,7 @@ void read_file_header(FILE* f, ImageWTYFileHeader* fh, uint32_t file_header_leng
  * @param f               File pointer
  * @param num_files       Number of file headers to read
  * @param file_header_len Size of each file header (from main header)
- * @return Pointer to allocated array of ImageWTYFileHeader
+ * @return Pointer to allocated array of ImageWTYFileHeader, or NULL on error.
  */
 ImageWTYFileHeader* read_all_file_headers(FILE* f, uint32_t num_files, uint32_t file_header_len);
 

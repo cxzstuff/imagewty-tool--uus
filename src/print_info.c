@@ -1,6 +1,6 @@
 #include "print_info.h"
 
-#include <stddef.h> // For size_t
+#include <stddef.h> /* For size_t */
 #include <stdio.h>
 #include <string.h>
 
@@ -33,10 +33,10 @@ void print_image_header(const ImageWTYHeader* h)
     printf("\n--- Files ---\n");
     printf("%-20s : %u\n", "Number of Files", h->num_files);
 
-    // Uncomment if needed for debugging unknown fields
-    // printf("%-20s : %u\n", "Unknown Field #1", h->unknown1);
-    // printf("%-20s : %u\n", "Unknown Field #2", h->unknown2);
-    // printf("%-20s : %u\n", "Unknown Field #3", h->unknown3);
+    /* Uncomment if needed for debugging unknown fields */
+    /* printf("%-20s : %u\n", "Unknown Field #1", h->unknown1); */
+    /* printf("%-20s : %u\n", "Unknown Field #2", h->unknown2); */
+    /* printf("%-20s : %u\n", "Unknown Field #3", h->unknown3); */
 }
 
 /**
@@ -50,16 +50,16 @@ void print_image_header(const ImageWTYHeader* h)
  */
 void print_file_headers(ImageWTYFileHeader* files, uint32_t num_files)
 {
-    // Minimal column widths (can expand automatically)
-    int w_no = 4;        // Column for file number
-    int w_name = 30;     // Column for filename
-    int w_maintype = 10; // Column for maintype
-    int w_subtype = 10;  // Column for subtype
-    int w_stored = 12;   // Column for stored length (with padding)
-    int w_orig = 10;     // Column for original length
-    int w_offset = 10;   // Column for offset
+    /* Minimal column widths (can expand automatically) */
+    int w_no = 4;        /* Column for file number */
+    int w_name = 30;     /* Column for filename */
+    int w_maintype = 10; /* Column for maintype */
+    int w_subtype = 10;  /* Column for subtype */
+    int w_stored = 12;   /* Column for stored length (with padding) */
+    int w_orig = 10;     /* Column for original length */
+    int w_offset = 10;   /* Column for offset */
 
-    // Adjust column widths dynamically based on content
+    /* Adjust column widths dynamically based on content */
     for (uint32_t i = 0; i < num_files; i++)
     {
         int len_name = strlen(files[i].filename);
@@ -74,21 +74,21 @@ void print_file_headers(ImageWTYFileHeader* files, uint32_t num_files)
             w_subtype = len_subtype;
     }
 
-    // Calculate total width of the separator line
+    /* Calculate total width of the separator line */
     int total_width = w_no + w_name + w_maintype + w_subtype + w_stored + w_orig + w_offset + 7;
 
-    // Print header row
+    /* Print header row */
     printf("\n=== File Headers (%u files) ===\n", num_files);
     printf("%-*s %-*s %-*s %-*s %-*s %-*s %-*s\n", w_no, "No", w_name, "Filename", w_maintype,
            "Maintype", w_subtype, "Subtype", w_stored, "Size (pad)", w_orig, "Size", w_offset,
            "Offset");
 
-    // Print dynamic separator line
+    /* Print dynamic separator line */
     for (int i = 0; i < total_width; i++)
         putchar('-');
     putchar('\n');
 
-    // Print each file row with optional description
+    /* Print each file row with optional description */
     for (uint32_t i = 0; i < num_files; i++)
     {
         ImageWTYFileHeader* fh = &files[i];
@@ -99,14 +99,14 @@ void print_file_headers(ImageWTYFileHeader* files, uint32_t num_files)
                w_maintype, fh->maintype, w_subtype, fh->subtype, w_stored, fh->stored_length,
                w_orig, fh->original_length, w_offset, offset_str);
 
-        // Optional human-readable description
+        /* Optional human-readable description */
         const char* desc = describe_file(fh->filename);
         if (desc && strcmp(desc, "Unknown or unmapped file name") != 0)
         {
             printf("      -> %s\n", desc);
         }
 
-        // Dynamic separator line after each file
+        /* Dynamic separator line after each file */
         for (int j = 0; j < total_width; j++)
             putchar('-');
         putchar('\n');
@@ -118,8 +118,8 @@ void print_file_headers(ImageWTYFileHeader* files, uint32_t num_files)
  */
 typedef struct
 {
-    const char* name;        ///< File name (e.g., boot.fex)
-    const char* description; ///< Human-readable description of the file
+    const char* name;        /**< File name (e.g., boot.fex) */
+    const char* description; /**< Human-readable description of the file */
 } FileDesc;
 
 /**
@@ -197,13 +197,13 @@ static const FileDesc file_table[] = {
  */
 const char* describe_file(const char* name)
 {
-    // Extract the base name in case a full path is provided
+    /* Extract the base name in case a full path is provided */
     const char* base = strrchr(name, '/');
     if (!base)
         base = strrchr(name, '\\');
     base = (base) ? base + 1 : name;
 
-    // Lookup the file in the table
+    /* Lookup the file in the table */
     for (size_t i = 0; i < sizeof(file_table) / sizeof(file_table[0]); i++)
     {
         if (strcmp(file_table[i].name, base) == 0)
@@ -212,6 +212,6 @@ const char* describe_file(const char* name)
         }
     }
 
-    // Return default string if file not found
+    /* Return default string if file not found */
     return "Unknown or unmapped file name";
 }
