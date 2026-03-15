@@ -1,0 +1,106 @@
+name: CI Build IMAGEWTY-Tool-32
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # Install build dependencies
+      # -----------------------------
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install make
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mingw make -y
+
+      # -----------------------------
+      # Build
+      # -----------------------------
+
+      - name: Build project
+        run: make
+
+      # -----------------------------
+      # Rename binaries
+      # -----------------------------
+
+      - name: Rename binaries
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            mv imagewty-tool imagewty-tool-1.0.0-linux-amd64
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            mv imagewty-tool imagewty-tool-1.0.0-macos-amd64
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            mv imagewty-tool.exe imagewty-tool-1.0.0-windows-amd64.exe
+          fi
+
+      # -----------------------------
+      # Create checksums
+      # -----------------------------
+
+
+      # -----------------------------
+      # Compress artifacts
+      # -----------------------------
+
+
+
+      # -----------------------------
+      # Upload CI artifacts
+      # -----------------------------
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-tool-${{ runner.os }}
+          path: |
+            imagewty-tool*
+      #    retention-days: 365
+
+      # -----------------------------
+      # Upload to GitHub Release
+      # -----------------------------
+
+      - name: Upload release assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            imagewty-tool*
+            
