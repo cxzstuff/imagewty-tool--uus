@@ -6,7 +6,9 @@
  * writes an image.cfg with metadata, and verifies integrity using
  * V*.fex checksums.
  */
-
+#ifdef _WIN32
+#include <direct.h>
+#endif
 #include <errno.h>
 #include <libgen.h>
 #include <stdint.h>
@@ -76,7 +78,12 @@ int extract_image(const char* img_filename)
 
     char dump_dir[1024];
     snprintf(dump_dir, sizeof(dump_dir), "%s.dump", basename(name_buf));
+  //  if (mkdir(dump_dir, 0755) && errno != EEXIST)
+     #ifdef _WIN32
+    if (mkdir(dump_dir) && errno != EEXIST)
+    #else
     if (mkdir(dump_dir, 0755) && errno != EEXIST)
+    #endif
     {
         perror("Error creating dump directory");
         free(files);
