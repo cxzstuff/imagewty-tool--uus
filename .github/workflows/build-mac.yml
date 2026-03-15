@@ -1,0 +1,60 @@
+name: Build IMAGEWTY-Tool
+
+on:
+  push:
+  pull_request:
+  release:
+    types: [created]
+
+jobs:
+
+
+
+
+# -------------------------------------------------
+# macOS builds
+# -------------------------------------------------
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build macOS Intel
+        run: make macos-intel
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-macos-intel
+          path: |
+            imagewty-tool*
+
+      - name: Build macOS ARM
+        run: make macos-arm
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-macos-arm
+          path: |
+            imagewty-tool*
+
+      - name: Create Universal Binary
+        run: |
+          lipo -create \
+            imagewty-tool-macos-x86_64 \
+            imagewty-tool-macos-arm64 \
+            -output imagewty-tool-macos
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-macos-builds
+          path: |
+            imagewty-tool-macos
+            imagewty-tool-macos-x86_64
+            imagewty-tool-macos-arm64
+
+
