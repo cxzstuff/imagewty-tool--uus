@@ -1,106 +1,161 @@
-name: CI Build IMAGEWTY-Tool-32
+name: Build IMAGEWTY-Tool
 
 on:
   push:
-    branches: [ main ]
   pull_request:
   release:
-    types: [published]
-
-permissions:
-  contents: write
+    types: [created]
 
 jobs:
 
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+# -------------------------------------------------
+# Linux / Windows / Android builds
+# -------------------------------------------------
+  build-linux:
+    runs-on: ubuntu-latest
 
     steps:
-
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # Install build dependencies
-      # -----------------------------
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Install build dependencies
         run: |
-          sudo apt update
-          sudo apt install -y build-essential
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gcc-multilib \
+            mingw-w64 \
+            unzip \
+            wget
 
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install make
-
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install mingw make -y
-
-      # -----------------------------
-      # Build
-      # -----------------------------
-
-      - name: Build project
-        run: make
-
-      # -----------------------------
-      # Rename binaries
-      # -----------------------------
-
-      - name: Rename binaries
-        shell: bash
-        run: |
-          VERSION=${GITHUB_REF_NAME}
-
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            mv imagewty-tool imagewty-tool-1.0.0-linux-amd64
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            mv imagewty-tool imagewty-tool-1.0.0-macos-amd64
-          elif [ "$RUNNER_OS" = "Windows" ]; then
-            mv imagewty-tool.exe imagewty-tool-1.0.0-windows-amd64.exe
-          fi
-
-      # -----------------------------
-      # Create checksums
-      # -----------------------------
-
-
-      # -----------------------------
-      # Compress artifacts
-      # -----------------------------
-
-
-
-      # -----------------------------
-      # Upload CI artifacts
-      # -----------------------------
+      - name: Build Linux x64
+        run: make linux
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: imagewty-tool-${{ runner.os }}
+          name: imagewty-linux-buildsa
           path: |
             imagewty-tool*
-      #    retention-days: 365
 
-      # -----------------------------
-      # Upload to GitHub Release
-      # -----------------------------
+      - name: Build Linux x86
+        run: make linux32
 
-      - name: Upload release assets
-        if: github.event_name == 'release'
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-linux-buildsb
+          path: |
+            imagewty-tool*
+
+      - name: Build Windows x64
+        run: make win64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-linux-buildsc
+          path: |
+            imagewty-tool*
+
+      - name: Build Windows x86
+        run: make win32
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-linux-buildsd
+          path: |
+            imagewty-tool*
+
+      # -------------------------
+      # Android NDK
+      # -------------------------
+      - name: Download Android NDK
+        run: |
+          wget https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+          unzip -q android-ndk-r26d-linux.zip
+          echo "$PWD/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Build Android ARMv7
+        run: make android-armv7
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-linux-buildse
+          path: |
+            imagewty-tool*
+
+      - name: Build Android ARM64
+        run: make android-arm64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-linux-buildsf
+          path: |
+            imagewty-tool*
+#            imagewty-tool-linux
+#            imagewty-tool-linux-x86
+#            imagewty-tool-win64.exe
+#            imagewty-tool-win32.exe
+#            imagewty-tool-android-armv7
+#            imagewty-tool-android-arm64
+
+# -------------------------------------------------
+# macOS builds
+# -------------------------------------------------
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build macOS Intel
+        run: make macos-intel
+
+      - name: Build macOS ARM
+        run: make macos-arm
+
+      - name: Create Universal Binary
+        run: |
+          lipo -create \
+            imagewty-tool-macos-x86_64 \
+            imagewty-tool-macos-arm64 \
+            -output imagewty-tool-macos
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagewty-macos-builds
+          path: |
+            imagewty-tool-macos
+            imagewty-tool-macos-x86_64
+            imagewty-tool-macos-arm64
+
+
+# -------------------------------------------------
+# Release packaging
+# -------------------------------------------------
+  release:
+    if: github.event_name == 'release'
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            imagewty-tool*
-            
+            **/imagewty-tool-linux
+            **/imagewty-tool-linux-x86
+            **/imagewty-tool-win64.exe
+            **/imagewty-tool-win32.exe
+            **/imagewty-tool-macos
+            **/imagewty-tool-android-armv7
+            **/imagewty-tool-android-arm64
